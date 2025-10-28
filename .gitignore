@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# uv & virtual envs
+.venv/
+.uv/
+
+# AWS CDK
+cdk.out/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
