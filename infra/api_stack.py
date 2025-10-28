@@ -5,6 +5,7 @@ from typing import Sequence
 
 import aws_cdk as cdk
 from aws_cdk import (
+    BundlingOptions,
     Duration,
     RemovalPolicy,
     Stack,
@@ -45,7 +46,7 @@ class ApiStack(Stack):
 
         lambda_code = lambda_.Code.from_asset(
             path=str(project_root),
-            bundling=lambda_.BundlingOptions(
+            bundling=BundlingOptions(
                 image=lambda_.Runtime.PYTHON_3_12.bundling_image,
                 command=[
                     "bash",
@@ -54,9 +55,10 @@ class ApiStack(Stack):
                         [
                             "set -euo pipefail",
                             "cd /asset-input",
+                            "export HOME=/tmp",
                             "curl -LsSf https://astral.sh/uv/install.sh | sh",
                             'export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\"',
-                            "uv export --frozen --output requirements.txt",
+                            "uv export --frozen --no-dev --no-group infra --output-file requirements.txt",
                             "python -m pip install --no-compile -r requirements.txt -t /asset-output",
                             "cp -r backend /asset-output/",
                             "rm -rf /asset-output/backend/tests",
@@ -99,7 +101,7 @@ class ApiStack(Stack):
             self,
             "OffersHttpApi",
             default_integration=integration,
-            cors_preflight=apigwv2.CorsConfiguration(
+            cors_preflight=apigwv2.CorsPreflightOptions(
                 allow_credentials=allow_credentials,
                 allow_headers=["*"],
                 allow_methods=[apigwv2.CorsHttpMethod.ANY],
