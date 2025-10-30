@@ -50,19 +50,24 @@ scripts/    # Utility scripts (e.g. smoke test)
    ```bash
    uv run cdk bootstrap
    ```
-2. Deploy the stack:
+2. Deploy the stack (defaults to the `dev` stage locally):
    ```bash
-   make deploy
+   make deploy AWS_PROFILE=local-dev AWS_REGION=us-east-1 STACK_STAGE=dev
+   ```
+   To target production, set the stage explicitly (CI sets `STACK_STAGE=prod` automatically):
+   ```bash
+   make deploy AWS_PROFILE=prod-profile AWS_REGION=us-east-1 STACK_STAGE=prod
    ```
 3. Destroy when finished:
    ```bash
-   make destroy
+   make destroy AWS_PROFILE=local-dev AWS_REGION=us-east-1 STACK_STAGE=dev
    ```
 
 ### Environment Configuration
 - `ITEMS_TABLE_NAME` is injected into the Lambda by the stack and must be set for local runs.
 - `ALLOWED_ORIGINS` controls CORS (comma-separated list or `*`).
 - `DYNAMODB_ENDPOINT_URL` (optional) targets a custom DynamoDB endpoint for local development.
+- `STACK_STAGE` controls the stack suffix and resource names (`dev` by default locally, `prod` in GitHub Actions).
 - Configure GitHub repository variables/secrets:
   - `vars.AWS_REGION` – target AWS region
   - `secrets.AWS_DEPLOY_ROLE` – IAM role ARN for CDK deployments
@@ -86,7 +91,7 @@ This hits the `/health` endpoint and validates the deployment.
 ## Runbook
 ```bash
 make setup
-make deploy
+make deploy AWS_PROFILE=local-dev AWS_REGION=us-east-1 STACK_STAGE=dev
 make smoke API_URL=https://xxxx.execute-api.<region>.amazonaws.com
 curl <API>/health
 ```

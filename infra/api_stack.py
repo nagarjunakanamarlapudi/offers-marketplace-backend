@@ -22,6 +22,7 @@ class ApiStack(Stack):
         scope: cdk.App,
         construct_id: str,
         *,
+        stage: str,
         allowed_origins: Sequence[str] | None = None,
         **kwargs,
     ) -> None:
@@ -35,7 +36,7 @@ class ApiStack(Stack):
         table = dynamodb.Table(
             self,
             "ItemsTable",
-            table_name=f"{self.stack_name}-items",
+            table_name=f"{stage}-items",
             partition_key=dynamodb.Attribute(
                 name="item_id",
                 type=dynamodb.AttributeType.STRING,
@@ -83,6 +84,7 @@ class ApiStack(Stack):
             environment={
                 "ITEMS_TABLE_NAME": table.table_name,
                 "ALLOWED_ORIGINS": ",".join(allowed_origins),
+                "STAGE": stage,
             },
         )
 
