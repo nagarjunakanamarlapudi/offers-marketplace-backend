@@ -101,7 +101,8 @@ class ApiStack(Stack):
 
         http_api = apigwv2.HttpApi(
             self,
-            "OffersHttpApi",
+            f"OffersHttpApi-{stage}",
+            api_name=f"OffersHttpApi-{stage}",
             default_integration=integration,
             cors_preflight=apigwv2.CorsPreflightOptions(
                 allow_credentials=allow_credentials,
