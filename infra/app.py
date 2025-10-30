@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import os
+import logging
+
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
 import aws_cdk as cdk
 
 from infra.api_stack import ApiStack
@@ -17,13 +23,51 @@ def _parse_allowed_origins(raw):
     raise ValueError("allowed_origins context must be a string or list")
 
 
+def _resolve_env() -> cdk.Environment | None:
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("CDK_DEFAULT_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+    )
+
+    account = os.environ.get("AWS_ACCOUNT_ID") or os.environ.get("CDK_DEFAULT_ACCOUNT")
+
+    if not account:
+        try:
+            session = boto3.session.Session(region_name=region)
+            account = session.client("sts").get_caller_identity()["Account"]
+            region = region or session.region_name
+        except (BotoCoreError, ClientError):
+            # Could not resolve account via STS (likely missing credentials).
+            # Leave account unset and allow CDK to run in environment-agnostic mode,
+            # but surface a helpful message for local developers.
+            account = None
+            logging.getLogger(__name__).warning(
+                "Unable to resolve AWS account via STS - no credentials found. "
+                "Set AWS_PROFILE or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY to allow CDK to deploy."
+            )
+
+    if account and region:
+        return cdk.Environment(account=account, region=region)
+    return None
+
+
 app = cdk.App()
+
+stage = (
+    app.node.try_get_context("stage")
+    or os.environ.get("STACK_STAGE")
+    or "dev"
+)
+cdk_env = _resolve_env()
 allowed_origins = _parse_allowed_origins(app.node.try_get_context("allowed_origins"))
 
 ApiStack(
     app,
-    "OffersApiStack",
+    f"OffersApiStack-{stage}",
+    stage=stage,
     allowed_origins=allowed_origins,
+    env=cdk_env,
 )
 
 app.synth()
