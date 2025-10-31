@@ -90,5 +90,9 @@ jobs:
         name: CDK Deploy
         run: |
           uv run cdk deploy --require-approval never --outputs-file cdk-outputs.json
-          API_URL=$(jq -r '.OffersApiStack.ApiUrl' cdk-outputs.json)
-          echo "api_url=$API_URL" >> "$GITHUB_OUTPUT"
+          API_URL=$(jq -r --arg stage "$STACK_STAGE" '.[("OffersApiStack-" + $stage)].ApiUrl // empty' cdk-outputs.json)
+          if [ -n "$API_URL" ] && [ "$API_URL" != "null" ]; then
+            echo "api_url=$API_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "Warning: API URL not found in cdk-outputs.json for stage '$STACK_STAGE'"
+          fi
