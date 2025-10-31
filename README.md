@@ -36,7 +36,7 @@ scripts/    # Utility scripts (e.g. smoke test)
    ITEMS_TABLE_NAME=local-items \
    DYNAMODB_ENDPOINT_URL=http://localhost:8000 \
    ALLOWED_ORIGINS="*" \
-   PORT=8000 \
+   PORT=8002 \
    make run-local
    ```
    Override `PORT` if 8000 is busy. Point `DYNAMODB_ENDPOINT_URL` at DynamoDB Local/LocalStack, or omit it to talk to AWS directly (requires valid credentials and a provisioned table).

@@ -49,6 +49,7 @@ class ApiStack(Stack):
             path=str(project_root),
             bundling=BundlingOptions(
                 image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                platform="linux/amd64",  # ensure native wheels match the x86_64 Lambda runtime
                 command=[
                     "bash",
                     "-c",
@@ -78,6 +79,7 @@ class ApiStack(Stack):
             self,
             "OffersBackendFunction",
             runtime=lambda_.Runtime.PYTHON_3_12,
+            architecture=lambda_.Architecture.X86_64,
             handler="backend.main.handler",
             code=lambda_code,
             timeout=Duration.seconds(30),
