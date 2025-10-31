@@ -57,7 +57,6 @@ class ApiStack(Stack):
             path=str(project_root),
             bundling=BundlingOptions(
                 image=lambda_.Runtime.PYTHON_3_12.bundling_image,
-                platform="linux/arm64",
                 command=[
                     "bash",
                     "-c",
