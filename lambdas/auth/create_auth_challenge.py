@@ -12,6 +12,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
+from lambdas.common.google import GOOGLE_CHALLENGE_ANSWER
 from lambdas.common.phone import normalize
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,28 @@ def handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     session = event.get("request", {}).get("session", [])
     last_metadata = _parse_metadata(session[-1].get("challengeMetadata")) if session else {}
     attempt_number = int(last_metadata.get("attempt", 0)) + 1
+
+    client_metadata = event.get("request", {}).get("clientMetadata") or {}
+    provider = (client_metadata.get("login_provider") or "").lower()
+
+    if provider == "google":
+        event.setdefault("response", {})
+        event["response"]["privateChallengeParameters"] = {
+            "answer": GOOGLE_CHALLENGE_ANSWER,
+            "attempt": str(attempt_number),
+            "provider": "google",
+        }
+        event["response"]["challengeMetadata"] = json.dumps(
+            {
+                "attempt": attempt_number,
+                "provider": "google",
+            }
+        )
+        event["response"]["publicChallengeParameters"] = {
+            "provider": "google",
+        }
+        logger.info("Issued Google challenge (attempt %s)", attempt_number)
+        return event
 
     otp = _generate_otp()
     expires_at = int(time.time()) + ttl_seconds

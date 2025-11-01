@@ -27,6 +27,7 @@ class ApiStack(Stack):
         construct_id: str,
         *,
         stage: str,
+        google_client_id: str,
         allowed_origins: Sequence[str] | None = None,
         **kwargs,
     ) -> None:
@@ -233,7 +234,21 @@ class ApiStack(Stack):
             environment=common_http_env,
         )
 
-        for fn in (auth_start_fn, auth_verify_fn, auth_refresh_fn):
+        auth_google_fn = lambda_.Function(
+            self,
+            "AuthGoogleFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            architecture=lambda_.Architecture.ARM_64,
+            handler="lambdas/http/auth_google.handler",
+            code=lambda_code,
+            timeout=Duration.seconds(30),
+            environment={
+                **common_http_env,
+                "GOOGLE_CLIENT_ID": google_client_id,
+            },
+        )
+
+        for fn in (auth_start_fn, auth_verify_fn, auth_refresh_fn, auth_google_fn):
             fn.add_environment("USER_POOL_ID", user_pool.user_pool_id)
             fn.add_environment("USER_POOL_CLIENT_ID", user_pool_client.user_pool_client_id)
 
@@ -275,6 +290,27 @@ class ApiStack(Stack):
             )
         )
 
+        auth_google_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "cognito-idp:AdminGetUser",
+                    "cognito-idp:AdminUpdateUserAttributes",
+                    "cognito-idp:AdminConfirmSignUp",
+                    "cognito-idp:AdminInitiateAuth",
+                    "cognito-idp:AdminRespondToAuthChallenge",
+                ],
+                resources=[user_pool.user_pool_arn],
+            )
+        )
+        auth_google_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "cognito-idp:SignUp",
+                ],
+                resources=["*"],
+            )
+        )
+
         offers_integration = integrations.HttpLambdaIntegration(
             "OffersLambdaIntegration",
             handler=offers_lambda,
@@ -293,6 +329,11 @@ class ApiStack(Stack):
         auth_refresh_integration = integrations.HttpLambdaIntegration(
             "AuthRefreshIntegration",
             handler=auth_refresh_fn,
+        )
+
+        auth_google_integration = integrations.HttpLambdaIntegration(
+            "AuthGoogleIntegration",
+            handler=auth_google_fn,
         )
 
         http_api = apigwv2.HttpApi(
@@ -322,6 +363,11 @@ class ApiStack(Stack):
             path="/auth/refresh",
             methods=[apigwv2.HttpMethod.POST],
             integration=auth_refresh_integration,
+        )
+        http_api.add_routes(
+            path="/auth/google",
+            methods=[apigwv2.HttpMethod.POST],
+            integration=auth_google_integration,
         )
 
         http_api.add_routes(

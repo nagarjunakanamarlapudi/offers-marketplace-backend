@@ -75,6 +75,7 @@ scripts/    # Utility scripts (e.g. smoke test)
   - `USER_POOL_ID`, `USER_POOL_CLIENT_ID`
   - `OTP_TTL_SECONDS` (default 300), `OTP_MAX_ATTEMPTS` (default 5)
   - `SMS_DEV_ECHO` (`true` for non-prod stages, `false` for `prod`)
+  - `GOOGLE_CLIENT_ID` must be supplied via CDK context (`google_client_id`) or environment (`GOOGLE_CLIENT_ID`) and should match the OAuth client used by the frontend.
 - Configure GitHub repository variables/secrets:
   - `vars.AWS_REGION` – target AWS region
   - `secrets.AWS_DEPLOY_ROLE` – IAM role ARN for CDK deployments
@@ -105,47 +106,73 @@ This hits the `/healthz` endpoint and validates the deployment.
 - Dependencies are installed with `pip install -r requirements.txt -t /asset-output`.
 - Application modules plus Cognito/HTTP handlers are copied into the asset bundle, enabling both the FastAPI backend (`backend.main.handler`) and the auth-specific Lambda entrypoints.
 
-## Passwordless Authentication Flow
-The API exposes public routes for initiating and verifying SMS OTP challenges and protects `/offers*` with a Cognito JWT authorizer.
+## Authentication Workflows
+The API exposes passwordless login pathways for both mobile phone OTP and Google Sign-In. Each flow yields Cognito-issued JWTs that authorize access to protected routes.
 
+### Mobile Phone + OTP
 ```bash
 API="https://<api-id>.execute-api.<REGION>.amazonaws.com"
 PHONE="+91XXXXXXXXXX"
 
-# 1) Start login (issues CUSTOM_CHALLENGE and sends OTP via SNS)
+# 1) Start login (initiates CUSTOM_CHALLENGE and sends OTP via SNS)
 curl -s -X POST "$API/auth/start" \
   -H "content-type: application/json" \
   -d "{\"phone\":\"$PHONE\"}"
-# → { "session":"<opaque>", "phone":"+91…", "dev_otp":"123456" }   # dev_otp only if SMS_DEV_ECHO=true
+# → { "session":"<opaque>", "phone":"+91…", "dev_otp":"123456" }   # dev_otp present only when SMS_DEV_ECHO=true
 
 # 2) Verify OTP and receive Cognito tokens
 SESSION="<paste session>"
-OTP="123456"   # from SMS (or dev_otp in dev)
+OTP="123456"   # from SMS (or dev_otp)
 curl -s -X POST "$API/auth/verify" \
   -H "content-type: application/json" \
   -d "{\"phone\":\"$PHONE\",\"otp\":\"$OTP\",\"session\":\"$SESSION\"}"
 # → { "access_token":"…", "id_token":"…", "refresh_token":"…", "expires_in":3600, "token_type":"Bearer" }
 
-# 3) Call a protected endpoint
+# 3) Use the access token with protected endpoints
 ACCESS_TOKEN="…"
 curl -s -X POST "$API/items" \
   -H "content-type: application/json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"item_id":"demo","name":"Sample","price":19.99}'
 
-
 curl -s "$API/items/demo" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
-# 4) Refresh tokens (optional)
+# 4) Refresh tokens (optional) using the refresh token from step 2
 REFRESH_TOKEN="…"
 curl -s -X POST "$API/auth/refresh" \
   -H "content-type: application/json" \
   -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
 # → { "access_token":"…", "id_token":"…", "expires_in":3600, "token_type":"Bearer" }
 
-# 5) Public health check
+# 5) Public health check (no auth required)
 curl -i "$API/healthz"
+```
+
+### Google Sign-In (Email)
+```bash
+API="https://<api-id>.execute-api.<REGION>.amazonaws.com"
+
+# 1) Obtain Google ID token on the client via Google Sign-In SDK
+# GOOGLE_ID_TOKEN="eyJhbGciOiJSUzI1NiIsImtpZCI6Ij..."  # Provided by Google
+
+# 2) Exchange Google credential for Cognito tokens
+curl -s -X POST "$API/auth/google" \
+  -H "content-type: application/json" \
+  -d "{\"id_token\":\"$GOOGLE_ID_TOKEN\"}"
+# → { "access_token":"…", "id_token":"…", "refresh_token":"…", "expires_in":3600, "token_type":"Bearer" }
+
+# 3) Use the access token with protected endpoints
+ACCESS_TOKEN="…"
+curl -s "$API/items/demo" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# 4) Refresh tokens using the refresh token (if included in step 2 response)
+REFRESH_TOKEN="…"
+curl -s -X POST "$API/auth/refresh" \
+  -H "content-type: application/json" \
+  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
+# → { "access_token":"…", "id_token":"…", "expires_in":3600, "token_type":"Bearer" }
 ```
 
 ## Runbook

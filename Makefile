@@ -5,11 +5,13 @@ AWS_SDK_LOAD_CONFIG ?= 1
 CDK_USE_CLI ?= 1
 STACK_STAGE ?= dev
 PORT ?= 8000
+GOOGLE_CLIENT_ID ?= 1090648089203-9c4u18mq4o7j64rn7club7afbg819rq1.apps.googleusercontent.com
 export AWS_PROFILE
 export AWS_REGION
 export AWS_SDK_LOAD_CONFIG
 export CDK_USE_CLI
 export STACK_STAGE
+export GOOGLE_CLIENT_ID
 
 CDK_PROFILE_ARG :=
 ifneq ($(AWS_PROFILE),)
@@ -22,6 +24,9 @@ CDK_REGION_ARG := --region $(AWS_REGION)
 endif
 
 CDK_CONTEXT_ARG := -c stage=$(STACK_STAGE)
+ifneq ($(strip $(GOOGLE_CLIENT_ID)),)
+CDK_CONTEXT_ARG += -c google_client_id=$(GOOGLE_CLIENT_ID)
+endif
 CDK_ARGS := $(CDK_PROFILE_ARG) $(CDK_REGION_ARG) $(CDK_CONTEXT_ARG)
 
 .PHONY: setup deploy destroy run-local test smoke synth

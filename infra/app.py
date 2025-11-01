@@ -61,11 +61,21 @@ stage = (
 )
 cdk_env = _resolve_env()
 allowed_origins = _parse_allowed_origins(app.node.try_get_context("allowed_origins"))
+google_client_id = (
+    app.node.try_get_context("google_client_id")
+    or os.environ.get("GOOGLE_CLIENT_ID")
+)
+if not google_client_id:
+    raise ValueError(
+        "Google client id must be provided via CDK context 'google_client_id' "
+        "or GOOGLE_CLIENT_ID environment variable."
+    )
 
 ApiStack(
     app,
     f"OffersApiStack-{stage}",
     stage=stage,
+    google_client_id=google_client_id,
     allowed_origins=allowed_origins,
     env=cdk_env,
 )

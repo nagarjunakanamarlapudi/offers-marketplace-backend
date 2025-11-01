@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Google Sign-In ID Token Helper</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+      }
+      pre {
+        padding: 1rem;
+        background: #f3f4f6;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+    </style>
+    <script>
+      function handleCredentialResponse(response) {
+        const token = response.credential;
+        const output = document.getElementById("token-output");
+        output.textContent = token;
+        console.log("Google ID token:", token);
+        alert("ID token captured. Copy it from the page or browser console.");
+      }
+
+      function initializeGoogle(clientId) {
+        if (!(window.google && google.accounts && google.accounts.id)) {
+          setTimeout(() => initializeGoogle(clientId), 100);
+          return;
+        }
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleCredentialResponse,
+        });
+        google.accounts.id.renderButton(
+          document.getElementById("google-signin-button"),
+          {
+            type: "standard",
+            size: "large",
+            theme: "outline",
+            text: "sign_in_with",
+            shape: "rectangular",
+            logo_alignment: "left",
+          }
+        );
+      }
+
+      window.onload = () => {
+        const clientIdInput = document.getElementById("client-id-input");
+        const setButton = document.getElementById("set-client-id");
+        setButton.addEventListener("click", () => {
+          const clientId = clientIdInput.value.trim();
+          if (!clientId) {
+            alert("Enter your Google OAuth client ID first.");
+            return;
+          }
+          document.getElementById("signin-section").style.display = "block";
+          initializeGoogle(clientId);
+          setButton.disabled = true;
+          clientIdInput.disabled = true;
+        });
+      };
+    </script>
+  </head>
+  <body>
+    <h1>Google Sign-In ID Token Helper</h1>
+    <p>
+      Paste your Google OAuth <code>client_id</code> below, click
+      <strong>Enable Sign-In</strong>, sign in, then copy the token that appears.
+    </p>
+    <label>
+      Google Client ID:
+      <input id="client-id-input" type="text" size="80" placeholder="1090...apps.googleusercontent.com" />
+    </label>
+    <button id="set-client-id">Enable Sign-In</button>
+
+    <div id="signin-section" style="display: none; margin-top: 2rem;">
+      <div id="google-signin-button"></div>
+
+      <h2>ID Token</h2>
+      <p>Copy this value into your <code>curl</code> call as <code>GOOGLE_ID_TOKEN</code>:</p>
+      <pre id="token-output">(sign in to populate)</pre>
+    </div>
+  </body>
+</html>
